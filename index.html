@@ -21,19 +21,23 @@
   --up:#1F9D55; --down:#E5484D; --invested:#9A9AA6;
   --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Inter","Helvetica Neue",Arial,sans-serif;
   --r:22px;
+  --c1:#2a78d6; --c2:#eb6834; --c3:#1baf7a; --c4:#eda100; --c5:#e87ba4; --c6:#008300; --c7:#6250d6; --c8:#e34948;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#000000; --card:#1C1C1E; --fg:#F5F5F7; --fg2:#9C9CA6; --fg3:#5E5E66;
   --line:#2C2C30; --fill:#2A2A2E; --accent:#6E8BFF; --accent-soft:#1E2540;
-  --up:#3DD07A; --down:#FF6B6F; --invested:#76767F; color-scheme:dark}}
+  --up:#3DD07A; --down:#FF6B6F; --invested:#76767F; --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500; --c5:#d55181; --c6:#0ca30c; --c7:#9085e9; --c8:#e66767; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#000000; --card:#1C1C1E; --fg:#F5F5F7; --fg2:#9C9CA6; --fg3:#5E5E66;
   --line:#2C2C30; --fill:#2A2A2E; --accent:#6E8BFF; --accent-soft:#1E2540;
-  --up:#3DD07A; --down:#FF6B6F; --invested:#76767F; color-scheme:dark}
+  --up:#3DD07A; --down:#FF6B6F; --invested:#76767F; --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500; --c5:#d55181; --c6:#0ca30c; --c7:#9085e9; --c8:#e66767; color-scheme:dark}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;min-height:100vh}
 .sheet textarea{width:100%;min-height:120px;border:0;border-radius:14px;background:var(--card);color:var(--fg);padding:12px;font:13px ui-monospace,Menlo,monospace}
+.scan{display:flex;align-items:center;justify-content:center;gap:8px}
+.scan svg{width:20px;height:20px}
+.sheet .line input.found{background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--accent)}
 .sheet .stack{display:flex;flex-direction:column;gap:10px;margin:14px 0}
 [hidden]{display:none!important}
 body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;line-height:1.4;-webkit-font-smoothing:antialiased}
@@ -111,6 +115,23 @@ h1{font-size:34px;font-weight:700;letter-spacing:-.02em;margin:2px 0 0}
 .al-legend{font-size:13px;color:var(--fg2);display:flex;gap:14px;flex-wrap:wrap;margin-top:12px}
 .al-legend span{display:inline-flex;align-items:center;gap:6px}
 
+/* Donut */
+.donut-wrap{display:flex;justify-content:center;margin:8px 0 4px}
+.donut{position:relative;width:210px;height:210px;max-width:100%}
+.donut svg{width:100%;height:100%;display:block;transform:rotate(-90deg)}
+.donut path{transition:opacity .2s;cursor:pointer}
+.donut.focus path:not(.on){opacity:.25}
+.donut .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;pointer-events:none;padding:44px}
+.donut .center b{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.donut .center span{font-size:13px;color:var(--fg2);line-height:1.25;max-width:120px}
+.legend-list{display:flex;flex-direction:column;margin-top:12px}
+.lg{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);background:none;border-left:0;border-right:0;border-top:0;font:inherit;color:inherit;text-align:left;cursor:pointer;width:100%}
+.lg:last-child{border-bottom:0}
+.lg .dot{width:12px;height:12px;border-radius:4px;flex:none}
+.lg .nm{flex:1;min-width:0;font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.lg .pc{font-size:17px;font-weight:700}
+.lg.zero .pc,.lg.zero .nm{color:var(--fg2)}
+.lg.zero .dot{background:transparent!important;box-shadow:inset 0 0 0 2px var(--fg3)}
 /* Holdings list */
 .list{background:var(--card);border-radius:var(--r);overflow:hidden}
 .item{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}
@@ -172,7 +193,7 @@ h1{font-size:34px;font-weight:700;letter-spacing:-.02em;margin:2px 0 0}
   <section class="card week" aria-labelledby="wk">
     <h2 class="section-title" id="wk">Où acheter cette semaine</h2>
     <div class="field">
-      <label for="spent">Dépensé / <span id="weekly">70</span> €</label>
+      <label for="spent">Je peux investir</label>
       <input id="spent" class="num" type="number" inputmode="decimal" min="0" step="0.5" placeholder="0">
       <span>€</span>
     </div>
@@ -239,14 +260,14 @@ function snapshot(){
   if(last&&last.d===TODAY)state.history[state.history.length-1]=p;else state.history.push(p);
 }
 
-function plan(spent){
-  const s=state, weekly=+s.weekly||0;
-  const saved=r2(Math.min(weekly,Math.max(0,weekly-(+spent||0))));
+function plan(amount){
+  const s=state;
+  const saved=r2(Math.max(0,+amount||0));
   const avail=r2(saved+(+s.cash||0));
   const fee=+s.fee||0, maxFee=(+s.maxFee||2)/100;
   const minBuy=fee>0?Math.ceil(fee/maxFee):1;
   if(avail<=0) return {type:"none",saved,avail};
-  if(avail<minBuy) return {type:"wait",saved,avail,minBuy,weeks:weekly>0?Math.ceil((minBuy-avail)/Math.max(saved,1)):0};
+  if(avail<minBuy) return {type:"wait",saved,avail,minBuy,weeks:0};
   const net=r2(avail-fee);
   const T=totalValue(s)+net;
   const tsum=s.holdings.reduce((a,h)=>a+(+h.target||0),0)||1;
@@ -260,24 +281,24 @@ function plan(spent){
 
 function render(){
   $("today").textContent=new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
-  $("weekly").textContent=new Intl.NumberFormat("fr-FR").format(state.weekly);
   renderWeek();
 }
 
 function renderWeek(){
-  const spent=parseFloat(($("spent").value||"0").replace(",","."))||0;
+  const raw=$("spent").value.trim(), spent=parseFloat(raw.replace(",","."))||0;
   const p=plan(spent);
+  if(!raw&&!(+state.cash>0)){renderAlloc(null);$("advice").innerHTML=`<p>Entre le montant que tu peux investir cette semaine.</p>`;$("confirm").hidden=true;return;}
   renderAlloc(p.type==="buy"?p.h.id:null);
   const a=$("advice"), btn=$("confirm");
   if(p.type==="buy"){
     const h=p.h, codes=[h.ticker].concat(h.alt||[]);
     a.innerHTML=`<div class="what">Achète <em class="num">${eur(p.net)}</em> de ${esc(h.name)}</div>
-      <p>Dans Revolut, cherche :</p>
+      <p>${+state.cash>0?`Avec ta réserve de ${eur(state.cash)}${p.fee?`, moins ${eur(p.fee)} de frais`:""}. `:(p.fee?`Après ${eur(p.fee)} de frais. `:"")}Dans Revolut, cherche :</p>
       <div class="ticker">${codes.map(c=>`<code>${esc(c)}</code>`).join("")}</div>`;
     btn.textContent="C'est fait"; btn.hidden=false; btn.dataset.mode="buy";
   }else if(p.type==="wait"){
     a.innerHTML=`<div class="what">Garde <em class="num">${eur(p.avail)}</em> en réserve</div>
-      <p>Trop petit à cause des frais. Achète à partir de ${eur(p.minBuy,0)}.</p>`;
+      <p>Trop petit à cause des frais. Il sera ajouté automatiquement la semaine prochaine. On achète à partir de ${eur(p.minBuy,0)}.</p>`;
     btn.textContent="Garder en réserve"; btn.hidden=false; btn.dataset.mode="wait";
   }else{
     a.innerHTML=`<div class="what">Rien à investir cette semaine</div>`;
@@ -342,15 +363,37 @@ function renderChart(){
   hit.addEventListener("pointerleave",()=>{tip.style.opacity="0";cross.setAttribute("opacity","0");});
 }
 
+let focusId=null, lastBuy=null;
 function renderAlloc(buyId){
-  const s=state, v=totalValue(s)||1;
-  const max=Math.max(...s.holdings.map(h=>h.value/v*100),10);
-  $("alloc").innerHTML=s.holdings.slice().sort((a,b)=>b.value-a.value).map(h=>{
-    const c=h.value/v*100, buy=h.id===buyId;
-    return `<div class="al-row${buy?" buy":""}"><span class="name">${esc(h.kind==="etf"?"ETF Monde":h.name)}${buy?'<span class="chip">à acheter</span>':""}</span><span class="pct num">${pct(c,0)}</span>
-      <div class="track"><div class="bar" style="width:${Math.max(c/max*100,c>0?2:0)}%"></div></div></div>`;
-  }).join("");
+  lastBuy=buyId;
+  const s=state, v=totalValue(s);
+  const items=s.holdings.map((h,k)=>({h,pct:v?h.value/v*100:0,color:`var(--c${(k%8)+1})`}));
+  const R=100,r=66,C=105, gap=v?1.2:0; let a0=0, paths="";
+  const pt=(rad,ang)=>[C+rad*Math.cos(ang),C+rad*Math.sin(ang)];
+  for(const it of items){
+    if(it.pct<=0)continue;
+    const sweep=it.pct/100*Math.PI*2, a1=a0+sweep;
+    if(it.pct>=99.95){paths+=`<path class="${focusId===it.h.id?"on":""}" data-id="${it.h.id}" fill="${it.color}" fill-rule="evenodd" d="M${C-R},${C}a${R},${R} 0 1,0 ${2*R},0a${R},${R} 0 1,0 ${-2*R},0M${C-r},${C}a${r},${r} 0 1,0 ${2*r},0a${r},${r} 0 1,0 ${-2*r},0"/>`;}
+    else{
+      const g=Math.min(gap/R,sweep/4), large=sweep-2*g>Math.PI?1:0;
+      const [x1,y1]=pt(R,a0+g),[x2,y2]=pt(R,a1-g),[x3,y3]=pt(r,a1-g*R/r),[x4,y4]=pt(r,a0+g*R/r);
+      paths+=`<path class="${focusId===it.h.id?"on":""}" data-id="${it.h.id}" fill="${it.color}" d="M${x1},${y1}A${R},${R} 0 ${large} 1 ${x2},${y2}L${x3},${y3}A${r},${r} 0 ${large} 0 ${x4},${y4}Z"/>`;
+    }
+    a0=a1;
+  }
+  if(!v)paths=`<circle cx="${C}" cy="${C}" r="${(R+r)/2}" fill="none" stroke="var(--fill)" stroke-width="${R-r}"/>`;
+  const f=items.find(it=>it.h.id===focusId);
+  const label=h=>esc(h.kind==="etf"?"ETF Monde":h.name);
+  const center=f?`<b class="num">${pct(f.pct,0)}</b><span>${label(f.h)}</span>`:(v?`<b class="num">${s.holdings.filter(h=>h.value>0).length}</b><span>lignes</span>`:`<span>Entre tes montants pour voir la répartition</span>`);
+  $("alloc").innerHTML=`<div class="donut-wrap"><div class="donut${f?" focus":""}" role="img" aria-label="Répartition : ${items.map(it=>label(it.h)+" "+pct(it.pct,0)).join(", ")}">
+      <svg viewBox="0 0 210 210">${paths}</svg><div class="center">${center}</div></div></div>
+    <div class="legend-list">${items.slice().sort((a,b)=>b.pct-a.pct).map(it=>`<button class="lg${it.pct<=0?" zero":""}" type="button" data-id="${it.h.id}" aria-pressed="${focusId===it.h.id}">
+      <i class="dot" style="background:${it.color}"></i><span class="nm">${label(it.h)}${it.h.id===buyId?'<span class="chip">à acheter</span>':""}</span><span class="pc num">${pct(it.pct,0)}</span></button>`).join("")}</div>`;
 }
+$("alloc").addEventListener("click",e=>{
+  const t=e.target.closest("[data-id]"); if(!t)return;
+  focusId=focusId===t.dataset.id?null:t.dataset.id; renderAlloc(lastBuy);
+});
 
 function renderList(){
   $("list").innerHTML=state.holdings.map(h=>{
@@ -370,11 +413,11 @@ $("confirm").addEventListener("click",()=>{
     const h=state.holdings.find(x=>x.id===p.h.id);
     h.value=r2(h.value+p.net); h.invested=r2(h.invested+p.avail);
     state.cash=0;
-    state.weeks.push({d:TODAY,spent:r2(spent),saved:p.saved,buy:h.id,amount:p.net,fee:p.fee});
+    state.weeks.push({d:TODAY,saved:p.saved,buy:h.id,amount:p.net,fee:p.fee});
     snapshot(); toast(`${eur(p.net)} ajoutés à ${h.kind==="etf"?"l'ETF Monde":h.name}`);
   }else if(p.type==="wait"){
     state.cash=p.avail;
-    state.weeks.push({d:TODAY,spent:r2(spent),saved:p.saved,buy:null,amount:0,fee:0});
+    state.weeks.push({d:TODAY,saved:p.saved,buy:null,amount:0,fee:0});
     toast(`Réserve : ${eur(p.avail)}`);
   }
   $("spent").value=""; persist(); render();
@@ -391,7 +434,9 @@ $("scrim").addEventListener("click",e=>{if(e.target===$("scrim"))$("scrim").hidd
 document.addEventListener("keydown",e=>{if(e.key==="Escape")$("scrim").hidden=true;});
 
 $("openValues").addEventListener("click",()=>{
-  openSheet(`<h2>Valeurs actuelles</h2><p class="hint">Recopie les montants affichés dans l'onglet Investir de Revolut.</p>
+  openSheet(`<h2>Valeurs actuelles</h2><p class="hint">Envoie une capture de l'onglet Investir de Revolut, ou recopie les montants.</p>
+    <div class="stack"><label class="btn scan" for="v-shot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg>Lire une capture Revolut</label>
+    <input id="v-shot" type="file" accept="image/*" hidden><p class="hint" id="v-status" aria-live="polite"></p></div>
     <div class="grp">${state.holdings.map(h=>`<div class="line"><label for="v-${h.id}">${esc(h.name)}<small>${esc(h.ticker)}</small></label><input id="v-${h.id}" type="number" inputmode="decimal" step="0.01" value="${h.value||""}" placeholder="0"></div>`).join("")}
     <div class="line"><label for="v-cash">Réserve non investie<small>Solde en devise + argent mis de côté</small></label><input id="v-cash" type="number" inputmode="decimal" step="0.01" value="${state.cash||""}" placeholder="0"></div></div>
     <div class="btns"><button class="btn ghost" data-cancel>Annuler</button><button class="btn" data-save>Enregistrer</button></div>`,
@@ -401,7 +446,6 @@ $("openValues").addEventListener("click",()=>{
 $("openSettings").addEventListener("click",()=>{
   openSheet(`<h2>Réglages</h2>
     <div class="grp">
-      <div class="line"><label for="s-weekly">Argent de poche par semaine</label><input id="s-weekly" type="number" inputmode="decimal" value="${state.weekly}"></div>
       <div class="line"><label for="s-fee">Frais Revolut par achat<small>Visible sur l'écran de confirmation d'un ordre</small></label><input id="s-fee" type="number" inputmode="decimal" step="0.01" value="${state.fee}"></div>
       <div class="line"><label for="s-max">Frais maximum acceptés<small>En % du montant acheté</small></label><input id="s-max" type="number" inputmode="decimal" step="0.5" value="${state.maxFee}"></div>
     </div>
@@ -411,7 +455,6 @@ $("openSettings").addEventListener("click",()=>{
     <div class="stack"><button class="btn ghost" id="b-copy" type="button">Copier ma sauvegarde</button><button class="btn ghost" id="b-restore" type="button">Restaurer une sauvegarde</button></div>
     <div class="btns"><button class="btn ghost" data-cancel>Annuler</button><button class="btn" data-save>Enregistrer</button></div>`,
   ()=>{const g=id=>parseFloat($(id).value);
-    if(!isNaN(g("s-weekly")))state.weekly=g("s-weekly");
     if(!isNaN(g("s-fee")))state.fee=Math.max(0,g("s-fee"));
     if(!isNaN(g("s-max"))&&g("s-max")>0)state.maxFee=g("s-max");
     state.holdings.forEach(h=>{const n=g("t-"+h.id);if(!isNaN(n))h.target=Math.max(0,n);});
@@ -430,6 +473,61 @@ document.addEventListener("click",e=>{
     openSheet(`<h2>Restaurer</h2><p class="hint">Colle ici le texte qui commence par TIRELIRE:</p><textarea id="b-in"></textarea><div class="btns" style="margin-top:14px"><button class="btn ghost" data-cancel>Annuler</button><button class="btn" data-save>Restaurer</button></div>`,
     ()=>{try{const v=$("b-in").value.trim().replace(/^TIRELIRE:/,"");state=normalize(JSON.parse(decodeURIComponent(escape(atob(v)))));toast("Données restaurées");}catch(err){toast("Ce texte n'est pas une sauvegarde valide");}});
   }
+});
+
+/* Read a Revolut screenshot on the phone (OCR, nothing is sent anywhere) */
+let tessP=null;
+function loadTess(){
+  if(window.Tesseract)return Promise.resolve();
+  if(!tessP)tessP=new Promise((ok,ko)=>{const sc=document.createElement("script");
+    sc.src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";sc.onload=ok;sc.onerror=()=>{tessP=null;ko();};document.head.appendChild(sc);});
+  return tessP;
+}
+function prepImage(file){
+  return new Promise((ok,ko)=>{const img=new Image();img.onload=()=>{
+    const scale=Math.min(1,1600/img.width),c=document.createElement("canvas");
+    c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);
+    const x=c.getContext("2d");x.filter="grayscale(1) contrast(1.4)";x.drawImage(img,0,0,c.width,c.height);
+    URL.revokeObjectURL(img.src);ok(c);};img.onerror=ko;img.src=URL.createObjectURL(file);});
+}
+const toNum=t=>parseFloat(t.replace(/[\s\u00a0\u202f.]/g,"").replace(",","."));
+function amountIn(line,euroOnly){
+  if(!line)return null;
+  const eu=[...line.matchAll(/(\d{1,3}(?:[ .\u00a0\u202f]\d{3})*,\d{2})\s*[€eE]/g)];
+  if(eu.length)return toNum(eu[eu.length-1][1]);
+  if(euroOnly)return null;
+  const any=[...line.matchAll(/(\d{1,3}(?:[ .\u00a0\u202f]\d{3})*,\d{2})(?!\s*[$%])/g)];
+  return any.length?toNum(any[any.length-1][1]):null;
+}
+function parseRevolut(text,holdings){
+  const lines=text.split(/\n+/).map(l=>l.trim()).filter(Boolean), out={}, used=new Set();
+  for(const h of holdings){
+    const codes=[h.ticker].concat(h.alt||[]);
+    const i=lines.findIndex(l=>{const L=l.toUpperCase().replace(/0/g,"O");return codes.some(c=>new RegExp("(^|[^A-Z])"+c.replace(/0/g,"O")+"([^A-Z]|$)").test(L));});
+    if(i<0)continue;
+    let v=amountIn(lines[i-1],false);
+    if(v==null)v=amountIn(lines[i],true);
+    if(v!=null&&!isNaN(v)){out[h.id]=v;used.add(i);}
+  }
+  const ci=lines.findIndex(l=>/solde|devise|esp[eè]ces|cash/i.test(l));
+  if(ci>=0){const v=amountIn(lines[ci],false);if(v!=null)out.cash=v;}
+  return out;
+}
+document.addEventListener("change",async e=>{
+  if(e.target.id!=="v-shot"||!e.target.files[0])return;
+  const st=$("v-status"), file=e.target.files[0];
+  st.textContent="Préparation de la lecture…";
+  try{
+    await loadTess();
+    const canvas=await prepImage(file);
+    const res=await Tesseract.recognize(canvas,"eng",{logger:m=>{if(m.status==="recognizing text")st.textContent="Lecture de la capture… "+Math.round(m.progress*100)+" %";}});
+    const found=parseRevolut(res.data.text,state.holdings);
+    let n=0;
+    for(const h of state.holdings){if(found[h.id]!=null){const inp=$("v-"+h.id);if(inp){inp.value=found[h.id];inp.classList.add("found");n++;}}}
+    if(found.cash!=null&&$("v-cash")){$("v-cash").value=found.cash;$("v-cash").classList.add("found");}
+    st.textContent=n?`${n} montant${n>1?"s":""} trouvé${n>1?"s":""} (en bleu). Vérifie-les, puis touche Enregistrer.`:"Aucun montant reconnu. Essaie une capture plus nette de la liste de tes actions.";
+  }catch(err){st.textContent="Lecture impossible. Vérifie ta connexion internet et réessaie.";}
+  e.target.value="";
 });
 
 let tt;function toast(m){const t=$("toast");t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2200);}
